@@ -1,9 +1,12 @@
+from flask_cors import CORS
 from flask import Flask, request, jsonify
 import cv2
 import numpy as np
 import base64
 
 app = Flask(__name__)
+
+CORS(app)  # Allow all origins 
 
 # Load face cascade once globally
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
