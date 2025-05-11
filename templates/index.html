@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Bot Detection via Face</title>
+</head>
+<body>
+  <h1>Face Detection instead of CAPTCHA</h1>
+
+  <video id="video" width="320" height="240" autoplay></video><br>
+  <button onclick="captureAndSend()">I'm not a bot</button>
+  <p id="result"></p>
+
+  <script>
+    const video = document.getElementById('video');
+
+    // Access webcam
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => { video.srcObject = stream; })
+      .catch(err => { console.error("Camera error: ", err); });
+
+    function captureAndSend() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 320;
+      canvas.height = 240;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, 320, 240);
+      const imageBase64 = canvas.toDataURL('image/jpeg').split(',')[1];
+
+      fetch('/detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageBase64 })
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('result').innerText =
+          data.face_detected ? "✅ No bot detected!" : "❌ No human face detected!";
+      })
+      .catch(err => console.error("API error: ", err));
+    }
+  </script>
+</body>
+</html>
