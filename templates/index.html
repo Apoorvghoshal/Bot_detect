@@ -1,43 +1,337 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Bot Detection via Face</title>
-</head>
-<body>
-  <h1>Face Detection instead of CAPTCHA</h1>
-
-  <video id="video" width="320" height="240" autoplay></video><br>
-  <button onclick="captureAndSend()">I'm not a bot</button>
-  <p id="result"></p>
-
-  <script>
-    const video = document.getElementById('video');
-
-    // Access webcam
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => { video.srcObject = stream; })
-      .catch(err => { console.error("Camera error: ", err); });
-
-    function captureAndSend() {
-      const canvas = document.createElement('canvas');
-      canvas.width = 320;
-      canvas.height = 240;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, 320, 240);
-      const imageBase64 = canvas.toDataURL('image/jpeg').split(',')[1];
-
-      fetch('/detect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: imageBase64 })
-      })
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById('result').innerText =
-          data.face_detected ? "✅ No bot detected!" : "❌ No human face detected!";
-      })
-      .catch(err => console.error("API error: ", err));
+  <head>
+    <title>FaceGate API</title>
+  </head>
+  <style>
+    body {
+      background-color: black;
+      color: white;
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
     }
-  </script>
-</body>
+
+    h1,
+    p {
+      display: flex;
+      justify-content: center;
+      text-align: center;
+      padding: 0 10px;
+    }
+
+    .container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    /* Responsive Video Section */
+    .container2 {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: #111;
+      color: #eee;
+      padding: 20px;
+      margin: 20px auto;
+      width: 90%;
+      max-width: 400px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(255, 255, 255, 0.05);
+      border: 1px solid #333;
+    }
+
+    .container2 h2 {
+      font-size: 1.2rem;
+      font-weight: 500;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .container2 video {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      border: 2px solid #555;
+      margin-bottom: 15px;
+    }
+
+    .container2 button {
+      background-color: #28c941;
+      color: black;
+      padding: 10px 20px;
+      font-size: 1rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      margin-bottom: 15px;
+    }
+
+    .container2 button:hover {
+      background-color: #25b235;
+    }
+
+    .container2 #result {
+      font-size: 1rem;
+      margin-top: 5px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    /* Card Styling */
+    .card {
+      width: 90%;
+      max-width: 1200px;
+      padding: 20px;
+      border: 1px solid #e8e8e8;
+      border-radius: 10px;
+      background-color: #000;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue",
+        sans-serif;
+      margin: 20px auto;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .mac-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .mac-header span {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .mac-header .red {
+      background-color: #ff5f57;
+    }
+    .mac-header .yellow {
+      background-color: #ffbd2e;
+    }
+    .mac-header .green {
+      background-color: #28c941;
+    }
+
+    .card-title {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #e6e6ef;
+    }
+
+    .card-description {
+      font-size: 1rem;
+      color: #aaa;
+      margin-bottom: 15px;
+    }
+
+    .card .card-tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      border-radius: 5px;
+      background-color: #0d1117;
+      padding: 4px;
+      margin-bottom: 12px;
+      color: #dcdcdc;
+    }
+
+    .code-editor {
+      background-color: #0d1117;
+      color: #dcdcdc;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      border-radius: 5px;
+      padding: 15px;
+      overflow-x: auto;
+      max-height: 200px;
+      border: 1px solid #333;
+    }
+
+    .code-editor::-webkit-scrollbar {
+      height: 8px;
+    }
+
+    .code-editor::-webkit-scrollbar-thumb {
+      background: #555;
+      border-radius: 4px;
+    }
+
+    .code-editor pre code {
+      white-space: pre-wrap;
+      display: block;
+    }
+
+    /* Responsive tweaks for small screens */
+    @media (max-width: 600px) {
+      h1,
+      p {
+        font-size: 1rem;
+      }
+
+      .container2 {
+        padding: 15px;
+      }
+
+      .card-title {
+        font-size: 1rem;
+      }
+
+      .card-description {
+        font-size: 0.9rem;
+      }
+
+      .code-editor {
+        font-size: 0.8rem;
+      }
+
+      .container2 button {
+        width: 100%;
+      }
+    }
+  </style>
+  <body>
+    <h1 style="color: white">👁️ FaceGate API</h1>
+    <p>
+      This API is a alternative for CAPTCHA by detecting a human face from a
+      webcam snapshot.
+    </p>
+
+    <div class="container2">
+      <h2>Click the button to verify you're human</h2>
+      <br />
+      <video id="video" width="320" height="240" autoplay></video><br />
+      <button onclick="captureAndSend()">I'm not a bot</button>
+      <p id="result"></p>
+    </div>
+
+    <!-- From Uiverse.io by mymiamo -->
+    <div class="container">
+      <div class="card">
+        <span class="card-title">How To Use</span>
+        <ol>
+          <li>
+            Add a live webcam preview window to your webpage to capture input
+            from the user's camera.
+          </li>
+          <br />
+          <li>
+            Send a POST request to
+            <code>https://facegate-api.onrender.com/detect</code> with a base64
+            JPEG image.
+          </li>
+          <br />
+          <li>
+            Receive a response like: <code>{ "face_detected": true }</code>
+          </li>
+        </ol>
+        <h3>Sample Code</h3>
+
+        <div class="code-editor">
+          <pre><code>&lt;!DOCTYPE html&gt;
+      &lt;html&gt;
+      &lt;head&gt;
+        &lt;title&gt;Face Detection Instead of CAPTCHA&lt;/title&gt;
+      &lt;/head&gt;
+      &lt;body&gt;
+        &lt;h2&gt;Click the button to verify you're human&lt;/h2&gt;
+      
+        &lt;video id="video" width="320" height="240" autoplay&gt;&lt;/video&gt;&lt;br&gt;
+        &lt;button onclick="captureAndSend()"&gt;I'm not a bot&lt;/button&gt;
+        &lt;p id="result"&gt;&lt;/p&gt;
+      
+        &lt;script&gt;
+          const video = document.getElementById('video');
+      
+          // Access user's webcam
+          navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream =&gt; { video.srcObject = stream; })
+            .catch(err =&gt; { console.error("Camera access error: ", err); });
+      
+          function captureAndSend() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 320;
+            canvas.height = 240;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, 320, 240);
+            const imageBase64 = canvas.toDataURL('image/jpeg').split(',')[1];
+      
+            fetch('https://facegate-api.onrender.com/detect', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: imageBase64 })
+            })
+            .then(res =&gt; res.json())
+            .then(data =&gt; {
+              document.getElementById('result').innerText =
+                data.face_detected ? "✅ Human detected!" : "❌ No human face found!";
+            })
+            .catch(err =&gt; {
+              document.getElementById('result').innerText = "🚫 Error contacting server.";
+              console.error("API error: ", err);
+            });
+          }
+        &lt;/script&gt;
+      &lt;/body&gt;
+      &lt;/html&gt;
+      </code></pre>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const video = document.getElementById("video");
+
+      // Access user's webcam
+      navigator.mediaDevices
+        .getUserMedia({ video: true })
+        .then((stream) => {
+          video.srcObject = stream;
+        })
+        .catch((err) => {
+          console.error("Camera access error: ", err);
+        });
+
+      function captureAndSend() {
+        const canvas = document.createElement("canvas");
+        canvas.width = 320;
+        canvas.height = 240;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, 320, 240);
+        const imageBase64 = canvas.toDataURL("image/jpeg").split(",")[1];
+
+        fetch("https://facegate-api.onrender.com/detect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: imageBase64 }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            document.getElementById("result").innerText = data.face_detected
+              ? "✅ Human detected!"
+              : "❌ No human face found!";
+          })
+          .catch((err) => {
+            document.getElementById("result").innerText =
+              "🚫 Error contacting server.";
+            console.error("API error: ", err);
+          });
+      }
+    </script>
+  </body>
 </html>
